@@ -47,7 +47,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const handleLogout = () => {
-    dbService.logout();
     onLogout();
     onNavigate('landing');
   };

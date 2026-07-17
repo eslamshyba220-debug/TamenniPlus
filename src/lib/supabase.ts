@@ -62,7 +62,8 @@ const STORAGE_KEYS = {
   ANALYTICS: 'tamny_analytics',
   NOTIFICATIONS: 'tamny_notifications',
   SETTINGS: 'tamny_settings',
-  LOGGED_IN_USER: 'tamny_logged_in_user'
+  LOGGED_IN_USER: 'tamny_logged_in_user',
+  ADMIN_SESSION: 'tamny_admin_session'
 };
 
 // Lazy initialization of LocalStorage databases
@@ -640,11 +641,16 @@ export const dbService = {
         updated_at: authUser.updated_at || new Date().toISOString()
       };
 
-      setStorageData(STORAGE_KEYS.LOGGED_IN_USER, { role: 'admin', data: adminData });
+      setStorageData(STORAGE_KEYS.ADMIN_SESSION, { role: 'admin' as const, data: adminData });
+      await supabase.auth.signOut().catch(() => undefined);
       return adminData;
     }
 
     throw new Error('Admin authentication is unavailable in mock mode.');
+  },
+
+  logoutAdmin(): void {
+    localStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION);
   },
 
   logout(): void {
@@ -654,11 +660,40 @@ export const dbService = {
     }
   },
 
+  getLoggedInAdmin(): { role: 'admin'; data: any } | null {
+    const session = localStorage.getItem(STORAGE_KEYS.ADMIN_SESSION);
+    return session ? JSON.parse(session) : null;
+  },
+
   async getCurrentAuthSession(): Promise<{ role: 'patient' | 'doctor' | 'admin'; data: any; profile?: DoctorProfile } | null> {
+    const adminSession = this.getLoggedInAdmin();
+    if (adminSession) {
+      return adminSession;
+    }
+
     const storedSession = this.getLoggedInUser();
     if (!isMockMode && supabase) {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (!error && session?.user?.email) {
+        const normalizedEmail = session.user.email.trim().toLowerCase();
+        if (normalizedEmail === 'eslamshyba220@gmail.com') {
+          const adminSessionFromStorage = this.getLoggedInAdmin();
+          if (adminSessionFromStorage) {
+            return adminSessionFromStorage;
+          }
+          const adminData = {
+            id: session.user.id,
+            auth_user_id: session.user.id,
+            email: normalizedEmail,
+            full_name: session.user.user_metadata?.full_name || session.user.email || 'Admin',
+            role: 'admin' as const,
+            created_at: session.user.created_at || new Date().toISOString(),
+            updated_at: session.user.updated_at || new Date().toISOString()
+          };
+          setStorageData(STORAGE_KEYS.ADMIN_SESSION, { role: 'admin' as const, data: adminData });
+          return { role: 'admin' as const, data: adminData };
+        }
+
         const patient = await this.getPatientByEmail(session.user.email);
         if (patient) {
           const nextSession = { role: 'patient' as const, data: patient };
@@ -694,6 +729,17 @@ export const dbService = {
     if (!isMockMode && supabase) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, supabaseSession) => {
         if (!supabaseSession?.user?.email) {
+          handler(null);
+          return;
+        }
+
+        const normalizedEmail = supabaseSession.user.email.trim().toLowerCase();
+        if (normalizedEmail === 'eslamshyba220@gmail.com') {
+          const adminSessionFromStorage = this.getLoggedInAdmin();
+          if (adminSessionFromStorage) {
+            handler(adminSessionFromStorage);
+            return;
+          }
           handler(null);
           return;
         }

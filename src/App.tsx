@@ -59,6 +59,12 @@ export default function App() {
 
     const initializeSession = async () => {
       try {
+        const adminSession = dbService.getLoggedInAdmin();
+        if (adminSession && mounted) {
+          setSession(adminSession);
+          return;
+        }
+
         const storedSession = dbService.getLoggedInUser();
         if (storedSession && mounted) {
           setSession(storedSession);
@@ -90,13 +96,21 @@ export default function App() {
   useEffect(() => {
     const resolveRoute = () => {
       if (typeof window === 'undefined') return;
-      const path = window.location.pathname.replace(/\/+$|^\//g, '');
+      const path = window.location.pathname.replace(/\/+$/g, '').replace(/^\//, '');
       if (path === 'terms' || path === 'terms-of-service') {
         setView('terms');
         return;
       }
       if (path === 'privacy' || path === 'privacy-policy') {
         setView('privacy');
+        return;
+      }
+      if (path === 'admin') {
+        const adminSession = dbService.getLoggedInAdmin();
+        if (!adminSession) {
+          setShowDoctorAuth(true);
+        }
+        setView('landing');
         return;
       }
       setView('landing');
@@ -301,6 +315,17 @@ export default function App() {
       return;
     }
 
+    if (viewOrTarget === 'admin') {
+      if (session?.role === 'admin') {
+        setView('landing');
+        pushUrl('/admin');
+        return;
+      }
+      setShowDoctorAuth(true);
+      pushUrl('/admin');
+      return;
+    }
+
     // If the first argument is actually a section target id
     setView('landing');
     pushUrl('/');
@@ -319,14 +344,27 @@ export default function App() {
     setShowDoctorAuth(false);
     setShowDoctorRegister(false);
 
-    if (normalizedSession.role === 'doctor' || normalizedSession.role === 'admin') {
+    if (normalizedSession.role === 'admin') {
       setView('landing');
+      window.history.replaceState({}, '', '/admin');
+      return;
+    }
+
+    if (normalizedSession.role === 'doctor') {
+      setView('landing');
+      return;
     }
   };
 
   const handleLogout = () => {
+    if (session?.role === 'admin') {
+      dbService.logoutAdmin();
+    } else {
+      dbService.logout();
+    }
     setSession(null);
     setView('landing');
+    window.history.replaceState({}, '', '/');
   };
 
   const handleRefreshUser = async () => {
