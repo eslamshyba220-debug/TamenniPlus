@@ -30,6 +30,7 @@ export const SPECIALTIES: Specialty[] = [
   { id: 'adhd_specialist', name_ar: 'أخصائي ADHD', name_en: 'ADHD Specialist', icon: 'Zap', group: 'pediatric_rehab' },
   { id: 'neurofeedback_specialist', name_ar: 'أخصائي Neurofeedback', name_en: 'Neurofeedback Specialist', icon: 'Brain', group: 'pediatric_rehab' },
   { id: 'child_rehabilitation', name_ar: 'أخصائي تأهيل الأطفال', name_en: 'Child Rehabilitation Specialist', icon: 'HeartPulse', group: 'pediatric_rehab' },
+  { id: 'physical_therapy', name_ar: 'علاج طبيعي وتأهيل', name_en: 'Physical Therapy & Rehabilitation', icon: 'Activity', group: 'pediatric_rehab' },
   { id: 'child_psychologist', name_ar: 'أخصائي نفسي أطفال', name_en: 'Child Psychologist', icon: 'Heart', group: 'pediatric_rehab' },
   { id: 'family_counseling', name_ar: 'أخصائي إرشاد أسري', name_en: 'Family Counseling Specialist', icon: 'Users', group: 'pediatric_rehab' }
 ];

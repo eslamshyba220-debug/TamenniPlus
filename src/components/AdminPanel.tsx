@@ -74,6 +74,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       
       // Load doctors list
       const docs = await dbService.getAllDoctorsAdmin();
+      console.log('[TamnyPlus][admin] loadAdminData', {
+        totalDoctors: docs.length,
+        doctorIds: docs.map((doc) => doc.account.id),
+        approvedCount: docs.filter((doc) => doc.account.status === 'approved').length
+      });
       setDoctors(docs);
 
       // Load settings

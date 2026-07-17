@@ -25,10 +25,9 @@ import {
 
 const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
-const isProd = (import.meta as any).env?.PROD === true;
 
 export let supabase: SupabaseClient | null = null;
-let isMockMode = !isProd; // In production, mock mode is strictly disabled by default!
+let isMockMode = !supabaseUrl || !supabaseAnonKey;
 
 if (supabaseUrl && supabaseAnonKey) {
   try {
@@ -725,6 +724,142 @@ export const dbService = {
     return patients.find(p => p.email.toLowerCase() === email.toLowerCase()) || null;
   },
 
+  async getDoctorAccountsWithProfiles(): Promise<{ account: DoctorAccount; profile: DoctorProfile | null }[]> {
+    if (!isMockMode && supabase) {
+      const { data, error } = await supabase
+        .from('doctor_accounts')
+        .select('*, doctor_profiles(*)');
+
+      console.log('[TamnyPlus][db] getDoctorAccountsWithProfiles', {
+        error: error?.message,
+        records: Array.isArray(data) ? data.length : 0
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return (data as any[]).map((acc) => {
+        const profileData = Array.isArray(acc.doctor_profiles) ? acc.doctor_profiles[0] : acc.doctor_profiles || null;
+        const profile: DoctorProfile | null = profileData ? {
+          id: profileData.id,
+          full_name_ar: profileData.full_name_ar,
+          full_name_en: profileData.full_name_en,
+          gender: profileData.gender,
+          dob: profileData.dob,
+          specialty_id: profileData.specialty_id,
+          sub_specialty_ar: profileData.sub_specialty_ar,
+          sub_specialty_en: profileData.sub_specialty_en,
+          degree_ar: profileData.degree_ar,
+          degree_en: profileData.degree_en,
+          experience_years: profileData.experience_years,
+          clinic_name_ar: profileData.clinic_name_ar,
+          clinic_name_en: profileData.clinic_name_en,
+          clinic_address_ar: profileData.clinic_address_ar,
+          clinic_address_en: profileData.clinic_address_en,
+          governorate_id: profileData.governorate_id,
+          city_id: profileData.city_id,
+          google_maps_url: profileData.google_maps_url || undefined,
+          phone_number: profileData.phone_number,
+          whatsapp_number: profileData.whatsapp_number,
+          email: profileData.email,
+          clinic_price: Number(profileData.clinic_price),
+          online_price: Number(profileData.online_price),
+          bio_ar: profileData.bio_ar,
+          bio_en: profileData.bio_en,
+          syndicate_number: profileData.syndicate_number,
+          languages: profileData.languages || [],
+          working_days: profileData.working_days || [],
+          working_hours_start: profileData.working_hours_start,
+          working_hours_end: profileData.working_hours_end,
+          emergency_available: profileData.emergency_available,
+          website: profileData.website || undefined,
+          facebook: profileData.facebook || undefined,
+          instagram: profileData.instagram || undefined,
+          linkedin: profileData.linkedin || undefined,
+          certificates: profileData.certificates || [],
+          clinic_photos: profileData.clinic_photos || [],
+          cover_image: profileData.cover_image || undefined,
+          profile_image: profileData.profile_image || undefined,
+          rating_avg: Number(profileData.rating_avg || 5.0),
+          rating_count: Number(profileData.rating_count || 0)
+        } : null;
+
+        const account: DoctorAccount = {
+          id: acc.id,
+          username: acc.username,
+          email: acc.email,
+          status: acc.status as DoctorStatus,
+          created_at: acc.created_at
+        };
+
+        return { account, profile };
+      });
+    }
+
+    const accounts = getStorageData<DoctorAccount[]>(STORAGE_KEYS.ACCOUNTS, SEED_DOCTOR_ACCOUNTS);
+    const profiles = getStorageData<DoctorProfile[]>(STORAGE_KEYS.PROFILES, SEED_DOCTOR_PROFILES);
+
+    return accounts.map((acc) => ({
+      account: acc,
+      profile: profiles.find((p) => p.id === acc.id) || null
+    }));
+  },
+
+  async getDoctorProfile(doctorId: string): Promise<DoctorProfile | null> {
+    if (!isMockMode && supabase) {
+      const { data, error } = await supabase.from('doctor_profiles').select('*').eq('id', doctorId).maybeSingle();
+      console.log('[TamnyPlus][db] getDoctorProfile', { doctorId, found: !!data, error: error?.message });
+      if (!error && data) {
+        return {
+          id: data.id,
+          full_name_ar: data.full_name_ar,
+          full_name_en: data.full_name_en,
+          gender: data.gender,
+          dob: data.dob,
+          specialty_id: data.specialty_id,
+          sub_specialty_ar: data.sub_specialty_ar,
+          sub_specialty_en: data.sub_specialty_en,
+          degree_ar: data.degree_ar,
+          degree_en: data.degree_en,
+          experience_years: data.experience_years,
+          clinic_name_ar: data.clinic_name_ar,
+          clinic_name_en: data.clinic_name_en,
+          clinic_address_ar: data.clinic_address_ar,
+          clinic_address_en: data.clinic_address_en,
+          governorate_id: data.governorate_id,
+          city_id: data.city_id,
+          google_maps_url: data.google_maps_url || undefined,
+          phone_number: data.phone_number,
+          whatsapp_number: data.whatsapp_number,
+          email: data.email,
+          clinic_price: Number(data.clinic_price),
+          online_price: Number(data.online_price),
+          bio_ar: data.bio_ar,
+          bio_en: data.bio_en,
+          syndicate_number: data.syndicate_number,
+          languages: data.languages || [],
+          working_days: data.working_days || [],
+          working_hours_start: data.working_hours_start,
+          working_hours_end: data.working_hours_end,
+          emergency_available: data.emergency_available,
+          website: data.website || undefined,
+          facebook: data.facebook || undefined,
+          instagram: data.instagram || undefined,
+          linkedin: data.linkedin || undefined,
+          certificates: data.certificates || [],
+          clinic_photos: data.clinic_photos || [],
+          cover_image: data.cover_image || undefined,
+          profile_image: data.profile_image || undefined,
+          rating_avg: Number(data.rating_avg || 5.0),
+          rating_count: Number(data.rating_count || 0)
+        };
+      }
+    }
+    const profiles = getStorageData<DoctorProfile[]>(STORAGE_KEYS.PROFILES, SEED_DOCTOR_PROFILES);
+    return profiles.find((p) => p.id === doctorId) || null;
+  },
+
   subscribeToAuthChanges(handler: (session: { role: 'patient' | 'doctor' | 'admin'; data: any; profile?: DoctorProfile } | null) => void): () => void {
     if (!isMockMode && supabase) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, supabaseSession) => {
@@ -766,135 +901,30 @@ export const dbService = {
 
   // --- DOCTORS PUBLIC SERVICE ---
   async getApprovedDoctors(): Promise<DoctorProfile[]> {
-    if (!isMockMode && supabase) {
-      const { data, error } = await supabase
-        .from('doctor_profiles')
-        .select('*, doctor_accounts!inner(status)');
-      if (!error && data) {
-        return (data as any[])
-          .filter(p => p.doctor_accounts?.status === 'approved')
-          .map(prof => ({
-            id: prof.id,
-            full_name_ar: prof.full_name_ar,
-            full_name_en: prof.full_name_en,
-            gender: prof.gender,
-            dob: prof.dob,
-            specialty_id: prof.specialty_id,
-            sub_specialty_ar: prof.sub_specialty_ar,
-            sub_specialty_en: prof.sub_specialty_en,
-            degree_ar: prof.degree_ar,
-            degree_en: prof.degree_en,
-            experience_years: prof.experience_years,
-            clinic_name_ar: prof.clinic_name_ar,
-            clinic_name_en: prof.clinic_name_en,
-            clinic_address_ar: prof.clinic_address_ar,
-            clinic_address_en: prof.clinic_address_en,
-            governorate_id: prof.governorate_id,
-            city_id: prof.city_id,
-            google_maps_url: prof.google_maps_url || undefined,
-            phone_number: prof.phone_number,
-            whatsapp_number: prof.whatsapp_number,
-            email: prof.email,
-            clinic_price: Number(prof.clinic_price),
-            online_price: Number(prof.online_price),
-            bio_ar: prof.bio_ar,
-            bio_en: prof.bio_en,
-            syndicate_number: prof.syndicate_number,
-            languages: prof.languages || [],
-            working_days: prof.working_days || [],
-            working_hours_start: prof.working_hours_start,
-            working_hours_end: prof.working_hours_end,
-            emergency_available: prof.emergency_available,
-            website: prof.website || undefined,
-            facebook: prof.facebook || undefined,
-            instagram: prof.instagram || undefined,
-            linkedin: prof.linkedin || undefined,
-            certificates: prof.certificates || [],
-            clinic_photos: prof.clinic_photos || [],
-            cover_image: prof.cover_image || undefined,
-            profile_image: prof.profile_image || undefined,
-            rating_avg: Number(prof.rating_avg || 5.0),
-            rating_count: Number(prof.rating_count || 0)
-          }));
-      }
-    }
+    const allDoctors = await this.getDoctorAccountsWithProfiles();
 
-    const accounts = getStorageData<DoctorAccount[]>(STORAGE_KEYS.ACCOUNTS, SEED_DOCTOR_ACCOUNTS);
-    const profiles = getStorageData<DoctorProfile[]>(STORAGE_KEYS.PROFILES, SEED_DOCTOR_PROFILES);
-
-    // Filter profiles where doctor status is 'approved'
-    return profiles.filter(profile => {
-      const acc = accounts.find(a => a.id === profile.id);
-      return acc && acc.status === 'approved';
+    const approved = allDoctors.filter((item) => item.account.status === 'approved' && item.profile);
+    console.log('[TamnyPlus][db] getApprovedDoctors', {
+      totalDoctors: allDoctors.length,
+      approvedCount: approved.length,
+      filteredOut: allDoctors.length - approved.length
     });
+
+    return approved.map((item) => item.profile!) ;
   },
 
   async getAllDoctorsAdmin(): Promise<{ account: DoctorAccount; profile: DoctorProfile }[]> {
-    if (!isMockMode && supabase) {
-      const { data: accountsData, error: accountsError } = await supabase.from('doctor_accounts').select('*');
-      const { data: profilesData, error: profilesError } = await supabase.from('doctor_profiles').select('*');
-      if (!accountsError && accountsData && !profilesError && profilesData) {
-        return accountsData.map((acc: any) => {
-          const prof = profilesData.find((p: any) => p.id === acc.id) || {};
-          const account: DoctorAccount = {
-            id: acc.id,
-            username: acc.username,
-            email: acc.email,
-            status: acc.status as DoctorStatus,
-            created_at: acc.created_at
-          };
-          const profile: DoctorProfile = {
-            id: acc.id,
-            full_name_ar: prof.full_name_ar || acc.username,
-            full_name_en: prof.full_name_en || acc.username,
-            gender: prof.gender || 'male',
-            dob: prof.dob || '1990-01-01',
-            specialty_id: prof.specialty_id || 'general',
-            sub_specialty_ar: prof.sub_specialty_ar || '',
-            sub_specialty_en: prof.sub_specialty_en || '',
-            degree_ar: prof.degree_ar || '',
-            degree_en: prof.degree_en || '',
-            experience_years: prof.experience_years || 1,
-            clinic_name_ar: prof.clinic_name_ar || '',
-            clinic_name_en: prof.clinic_name_en || '',
-            clinic_address_ar: prof.clinic_address_ar || '',
-            clinic_address_en: prof.clinic_address_en || '',
-            governorate_id: prof.governorate_id || 'cairo',
-            city_id: prof.city_id || 'nasr_city',
-            phone_number: prof.phone_number || '',
-            whatsapp_number: prof.whatsapp_number || '',
-            email: prof.email || acc.email,
-            clinic_price: Number(prof.clinic_price || 100),
-            online_price: Number(prof.online_price || 100),
-            bio_ar: prof.bio_ar || '',
-            bio_en: prof.bio_en || '',
-            syndicate_number: prof.syndicate_number || '',
-            languages: prof.languages || [],
-            working_days: prof.working_days || [],
-            working_hours_start: prof.working_hours_start || '09:00',
-            working_hours_end: prof.working_hours_end || '17:00',
-            emergency_available: !!prof.emergency_available,
-            certificates: prof.certificates || [],
-            clinic_photos: prof.clinic_photos || [],
-            cover_image: prof.cover_image || undefined,
-            profile_image: prof.profile_image || undefined,
-            rating_avg: Number(prof.rating_avg || 5.0),
-            rating_count: Number(prof.rating_count || 0)
-          };
-          return { account, profile };
-        });
-      }
-    }
+    const allDoctors = await this.getDoctorAccountsWithProfiles();
+    console.log('[TamnyPlus][db] getAllDoctorsAdmin', {
+      total: allDoctors.length
+    });
 
-    const accounts = getStorageData<DoctorAccount[]>(STORAGE_KEYS.ACCOUNTS, SEED_DOCTOR_ACCOUNTS);
-    const profiles = getStorageData<DoctorProfile[]>(STORAGE_KEYS.PROFILES, SEED_DOCTOR_PROFILES);
-
-    return accounts.map(acc => ({
-      account: acc,
-      profile: profiles.find(p => p.id === acc.id) || {
-        id: acc.id,
-        full_name_ar: acc.username,
-        full_name_en: acc.username,
+    return allDoctors.map((item) => ({
+      account: item.account,
+      profile: item.profile || {
+        id: item.account.id,
+        full_name_ar: item.account.username,
+        full_name_en: item.account.username,
         gender: 'male',
         dob: '1990-01-01',
         specialty_id: 'general',
@@ -911,7 +941,7 @@ export const dbService = {
         city_id: 'nasr_city',
         phone_number: '',
         whatsapp_number: '',
-        email: acc.email,
+        email: item.account.email,
         clinic_price: 100,
         online_price: 100,
         bio_ar: '',

@@ -196,12 +196,10 @@ export default function App() {
   // Load Verified Live Doctors
   const refreshDoctorsList = async () => {
     const list = await dbService.getApprovedDoctors();
-    console.log('[TamnyPlus][ui] approved doctors list loaded', list.map((doc) => ({
-      id: doc.id,
-      profile_image: doc.profile_image,
-      cover_image: doc.cover_image,
-      clinic_photos: doc.clinic_photos?.length || 0
-    })));
+    console.log('[TamnyPlus][ui] refreshDoctorsList', {
+      totalApproved: list.length,
+      doctorIds: list.map((doc) => doc.id)
+    });
     setDoctorsList(list);
   };
 
