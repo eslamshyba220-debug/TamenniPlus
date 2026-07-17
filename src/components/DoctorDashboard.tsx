@@ -70,6 +70,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   const [emergencyAvailable, setEmergencyAvailable] = useState(profile.emergency_available);
   const [bioAr, setBioAr] = useState(profile.bio_ar);
   const [bioEn, setBioEn] = useState(profile.bio_en);
+  const [specialtyId, setSpecialtyId] = useState(profile.specialty_id);
   const [workingDays, setWorkingDays] = useState<number[]>(profile.working_days || []);
   
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -147,6 +148,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
       const updatedProfile = await dbService.updateDoctorProfile(profile.id, {
         full_name_ar: fullNameAr,
         full_name_en: fullNameEn,
+        specialty_id: specialtyId,
         clinic_name_ar: clinicNameAr,
         clinic_name_en: clinicNameEn,
         clinic_address_ar: clinicAddressAr,
@@ -694,6 +696,31 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                             onChange={(e) => setClinicNameEn(e.target.value)}
                             className="w-full h-11 px-4 rounded-xl border border-border-brand bg-white focus:border-primary outline-none"
                           />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] uppercase text-text-muted">{isRtl ? 'التخصص الطبي الرئيسي' : 'Primary Medical Specialty'}</label>
+                          <select
+                            required
+                            value={specialtyId}
+                            onChange={(e) => setSpecialtyId(e.target.value)}
+                            className="w-full h-11 px-4 rounded-xl border border-border-brand bg-white focus:border-primary outline-none"
+                          >
+                            <option value="">{isRtl ? 'اختر التخصص' : 'Select Specialty'}</option>
+                            <optgroup label={isRtl ? 'التخصصات الطبية' : 'Medical Specialists'}>
+                              {SPECIALTIES.filter((s) => s.group !== 'pediatric_rehab').map((spec) => (
+                                <option key={spec.id} value={spec.id}>
+                                  {isRtl ? spec.name_ar : spec.name_en}
+                                </option>
+                              ))}
+                            </optgroup>
+                            <optgroup label={isRtl ? 'أخصائيون أطفال وتأهيل' : 'Child & Rehabilitation Specialists'}>
+                              {SPECIALTIES.filter((s) => s.group === 'pediatric_rehab').map((spec) => (
+                                <option key={spec.id} value={spec.id}>
+                                  {isRtl ? spec.name_ar : spec.name_en}
+                                </option>
+                              ))}
+                            </optgroup>
+                          </select>
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] uppercase text-text-muted">{isRtl ? 'عنوان العيادة بالعربية' : 'Clinic Address (Arabic)'}</label>
