@@ -45,15 +45,11 @@ export const PatientAuth: React.FC<PatientAuthProps> = ({
         return;
       }
 
-      const dummyUser = {
-        name: isRtl ? 'إسلام شيبة' : 'Eslam Shyba',
-        email: 'eslamshyba220@gmail.com',
-        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
-      };
-
-      const patient = await dbService.patientGoogleLogin(dummyUser);
-      setLoading(false);
-      onSuccess({ role: 'patient', data: patient });
+      const patient = await dbService.patientGoogleLogin();
+      if (patient?.id) {
+        setLoading(false);
+        onSuccess({ role: 'patient', data: patient });
+      }
     } catch (err) {
       setLoading(false);
       console.error(err);

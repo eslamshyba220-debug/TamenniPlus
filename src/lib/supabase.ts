@@ -232,43 +232,107 @@ export const dbService = {
   },
 
   // --- AUTH SERVICES ---
-  async patientGoogleLogin(googleUser: { name: string; email: string; avatar_url: string }): Promise<Patient> {
-    if (!isMockMode && supabase) {
-      const normalizedEmail = googleUser.email.toLowerCase();
-      const tempPassword = `tamnyplus-${normalizedEmail.replace(/[^a-z0-9]/g, '')}-${Date.now().toString().slice(-6)}`;
+  async patientGoogleLogin(googleUser?: { name?: string; email?: string; avatar_url?: string; auth_user_id?: string }): Promise<Patient> {
+    const resolveGoogleProfile = async () => {
+      if (googleUser?.email) {
+        return {
+          name: googleUser.name?.trim() || '',
+          email: googleUser.email.trim().toLowerCase(),
+          avatar_url: googleUser.avatar_url || '',
+          auth_user_id: googleUser.auth_user_id || ''
+        };
+      }
 
-      try {
-        await supabase.auth.signInWithPassword({ email: normalizedEmail, password: tempPassword });
-      } catch (signInError) {
-        try {
-          await supabase.auth.signUp({
-            email: normalizedEmail,
-            password: tempPassword,
-            options: {
-              data: {
-                name: googleUser.name,
-                avatar_url: googleUser.avatar_url
-              }
-            }
-          });
-        } catch (signUpError) {
-          console.warn('[TamnyPlus][auth] Supabase auth fallback failed', signUpError);
+      if (!isMockMode && supabase) {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (!sessionError && session?.user) {
+          const authUser = session.user;
+          const profileName = authUser.user_metadata?.full_name
+            || authUser.user_metadata?.name
+            || authUser.user_metadata?.preferred_username
+            || authUser.email;
+
+          return {
+            name: typeof profileName === 'string' ? profileName.trim() : '',
+            email: authUser.email?.trim().toLowerCase() || '',
+            avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || '',
+            auth_user_id: authUser.id
+          };
+        }
+
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (!userError && user) {
+          const profileName = user.user_metadata?.full_name
+            || user.user_metadata?.name
+            || user.user_metadata?.preferred_username
+            || user.email;
+
+          return {
+            name: typeof profileName === 'string' ? profileName.trim() : '',
+            email: user.email?.trim().toLowerCase() || '',
+            avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
+            auth_user_id: user.id
+          };
         }
       }
 
+      return null;
+    };
+
+    const resolvedGoogleUser = await resolveGoogleProfile();
+
+    if (!isMockMode && supabase) {
+      const normalizedEmail = resolvedGoogleUser?.email?.trim().toLowerCase() || '';
+      if (!normalizedEmail) {
+        try {
+          const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: `${window.location.origin}${window.location.pathname}`
+            }
+          });
+
+          if (error) {
+            throw error;
+          }
+
+          if (data?.url) {
+            window.location.assign(data.url);
+            return null as unknown as Patient;
+          }
+        } catch (oauthError) {
+          console.warn('[TamnyPlus][auth] Google OAuth initiation failed', oauthError);
+          throw oauthError;
+        }
+      }
+
+      const displayName = resolvedGoogleUser?.name?.trim() || normalizedEmail.split('@')[0] || 'Patient';
+      const avatarUrl = resolvedGoogleUser?.avatar_url || undefined;
+
       let { data, error } = await supabase.from('patients').select('*').eq('email', normalizedEmail).maybeSingle();
-      if (error || !data) {
+      if (error) throw error;
+
+      if (!data) {
         const { data: inserted, error: insertError } = await supabase.from('patients').insert({
-          name: googleUser.name,
+          name: displayName,
           email: normalizedEmail,
-          avatar_url: googleUser.avatar_url
+          avatar_url: avatarUrl
         }).select().single();
         if (insertError) throw insertError;
         data = inserted;
+      } else if (!data.name && displayName) {
+        const { data: updated, error: updateError } = await supabase.from('patients').update({
+          name: displayName,
+          avatar_url: data.avatar_url || avatarUrl || null
+        }).eq('id', data.id).select().single();
+        if (!updateError) {
+          data = updated;
+        }
       }
+
       const patient: Patient = {
         id: data.id,
-        name: data.name,
+        name: data.name || displayName,
         email: data.email,
         avatar_url: data.avatar_url || undefined,
         created_at: data.created_at,
@@ -283,22 +347,22 @@ export const dbService = {
     }
 
     const patients = getStorageData<Patient[]>(STORAGE_KEYS.PATIENTS, []);
-    let patient = patients.find(p => p.email.toLowerCase() === googleUser.email.toLowerCase());
+    const normalizedEmail = resolvedGoogleUser?.email?.toLowerCase() || '';
+    let patient = normalizedEmail ? patients.find(p => p.email.toLowerCase() === normalizedEmail) : null;
 
     if (!patient) {
       patient = {
         id: 'patient-' + Math.random().toString(36).substr(2, 9),
-        name: googleUser.name,
-        email: googleUser.email.toLowerCase(),
-        avatar_url: googleUser.avatar_url,
+        name: resolvedGoogleUser?.name?.trim() || normalizedEmail.split('@')[0] || 'Patient',
+        email: normalizedEmail,
+        avatar_url: resolvedGoogleUser?.avatar_url || undefined,
         created_at: new Date().toISOString(),
         favorites: []
       };
       patients.push(patient);
       setStorageData(STORAGE_KEYS.PATIENTS, patients);
     }
-    
-    // Save current session
+
     setStorageData(STORAGE_KEYS.LOGGED_IN_USER, { role: 'patient', data: patient });
     return patient;
   },
@@ -693,11 +757,19 @@ export const dbService = {
           return { role: 'admin' as const, data: adminData };
         }
 
-        const patient = await this.getPatientByEmail(session.user.email);
-        if (patient) {
-          const nextSession = { role: 'patient' as const, data: patient };
-          setStorageData(STORAGE_KEYS.LOGGED_IN_USER, nextSession);
-          return nextSession;
+        try {
+          const patient = await this.patientGoogleLogin({
+            name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.user_metadata?.preferred_username || session.user.email,
+            email: session.user.email,
+            avatar_url: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || ''
+          });
+          if (patient?.id) {
+            const nextSession = { role: 'patient' as const, data: patient };
+            setStorageData(STORAGE_KEYS.LOGGED_IN_USER, nextSession);
+            return nextSession;
+          }
+        } catch (authError) {
+          console.warn('[TamnyPlus][auth] Failed to initialize patient session from Google auth', authError);
         }
       }
     }
@@ -879,12 +951,21 @@ export const dbService = {
           return;
         }
 
-        const patient = await this.getPatientByEmail(supabaseSession.user.email);
-        if (patient) {
-          const nextSession = { role: 'patient' as const, data: patient };
-          setStorageData(STORAGE_KEYS.LOGGED_IN_USER, nextSession);
-          handler(nextSession);
-        } else {
+        try {
+          const patient = await this.patientGoogleLogin({
+            name: supabaseSession.user.user_metadata?.full_name || supabaseSession.user.user_metadata?.name || supabaseSession.user.user_metadata?.preferred_username || supabaseSession.user.email,
+            email: supabaseSession.user.email,
+            avatar_url: supabaseSession.user.user_metadata?.avatar_url || supabaseSession.user.user_metadata?.picture || ''
+          });
+          if (patient?.id) {
+            const nextSession = { role: 'patient' as const, data: patient };
+            setStorageData(STORAGE_KEYS.LOGGED_IN_USER, nextSession);
+            handler(nextSession);
+          } else {
+            handler(null);
+          }
+        } catch (authError) {
+          console.warn('[TamnyPlus][auth] Failed to sync patient auth state', authError);
           handler(null);
         }
       });
