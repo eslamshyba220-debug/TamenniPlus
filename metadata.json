@@ -1,0 +1,6 @@
+{
+  "name": "Tamenni Plus",
+  "description": "طمني بلس - A premium medical platform connecting patients with doctors with elegant UI and complete dashboards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

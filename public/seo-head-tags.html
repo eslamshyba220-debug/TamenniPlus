@@ -1,0 +1,52 @@
+<!-- Preload critical fonts and resources -->
+<link rel="preload" as="font" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" />
+
+<!-- Preconnect to critical origins -->
+<link rel="preconnect" href="https://supabase.co" />
+
+<!-- DNS Prefetch for external services -->
+<link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+<link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+
+<!-- Performance: Async CSS Loading -->
+<style>
+  /* Critical CSS inline - improves FCP */
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  #root {
+    min-height: 100vh;
+  }
+</style>
+
+<!-- Structured Data for Organization -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "MedicalOrganization",
+  "name": "Tamny Plus",
+  "alternateName": "طمّني بلس",
+  "url": "https://tamnyplus.com",
+  "logo": "https://tamnyplus.com/logo.png",
+  "description": "منصة طبية عربية تساعد المرضى في البحث عن أفضل الأطباء",
+  "areaServed": {
+    "@type": "Country",
+    "name": "Saudi Arabia"
+  },
+  "medicalSpecialty": [
+    "Pediatrics",
+    "Orthopedics",
+    "Dermatology",
+    "Cardiology",
+    "Obstetrics and Gynaecology",
+    "GeneralPractitioner"
+  ]
+}
+</script>
